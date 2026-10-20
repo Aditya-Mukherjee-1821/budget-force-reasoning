@@ -1,0 +1,29 @@
+# Downloaded Hugging Face model snapshots and generated checkpoints
+base_model_weights/
+**/base_model_weights/
+sft_qlora/
+checkpoint-*/
+**/checkpoint-*/
+
+# Ignore downloaded model tensors and checkpoints by default.
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.gguf
+
+# The SFT adapter is required by budget_forcing/evaluation.ipynb.
+# Keep this one visible to Git; .gitattributes routes it through Git LFS.
+!budget_forcing/adapter_model.safetensors
+
+# Python and notebook runtime artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Colab exports and transient partial evaluation files
+*.zip
+*.partial.json

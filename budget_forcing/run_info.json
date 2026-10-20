@@ -1,0 +1,19 @@
+{
+  "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+  "method": "QLoRA",
+  "epochs": 6,
+  "learning_rate": 5e-05,
+  "effective_training_batch_size": 16,
+  "inference_batch_size": 16,
+  "lora_r": 32,
+  "lora_alpha": 64,
+  "train_examples": 450,
+  "test_examples": 90,
+  "forcing": [
+    0,
+    2
+  ],
+  "thinking_budget": 1024,
+  "answer_tokens": 32,
+  "wait_policy": "only_on_final_marker_or_eos"
+}
