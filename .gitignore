@@ -15,7 +15,7 @@ checkpoint-*/
 
 # The SFT adapter is required by budget_forcing/evaluation.ipynb.
 # Keep this one visible to Git; .gitattributes routes it through Git LFS.
-!budget_forcing/adapter_model.safetensors
+!budget_forcing/weights/adapter_model.safetensors
 
 # Python and notebook runtime artifacts
 __pycache__/
