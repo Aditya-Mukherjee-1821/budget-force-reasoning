@@ -1,33 +1,69 @@
 # Budget Force Reasoning
 
-Colab-ready experiments for a small GSM8K reasoning dataset: base-model inference, QLoRA fine-tuning, and s1-style budget forcing.
+This repository contains a small GSM8K experiment comparing ordinary generation with budget forcing. The model is asked to continue reasoning after it first tries to stop, then its answers are scored under 0-wait and 2-wait settings.
 
-## Package contents
+The experiment uses `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` and a QLoRA adapter trained on 450 examples. The held-out test set contains 90 examples across nine topics.
 
-- `base/`: baseline notebooks and the final `train.json` / `test.json` splits.
-- `budget_forcing/`: QLoRA training/evaluation notebook, adapter-only evaluation notebook, current run metrics/plots, and the same final splits.
-- `data/`: the data-preparation scripts, filters, prompts, raw source files, and intermediate splits. The final `train/` and `test/` directories are omitted because those files are beside the model notebooks.
+## Repository layout
 
-The final split currently contains 450 training examples and 90 test examples, balanced over nine topics. The test set has ten examples per topic.
+- `base/` — notebook and inputs for evaluating the unmodified DeepSeek model. `results/` contains its saved metrics; `weights/` and `plots/` are created by the notebook.
+- `budget_forcing/` — the training notebook (`budget_force_model.ipynb`), adapter-only evaluation notebook (`evaluation.ipynb`), final `train.json` and `test.json`, saved results, plots, and adapter/tokenizer files.
+- `data/` — scripts used to prepare the data, prompt templates, source/intermediate files, and filtering utilities. `stage_1_split/` and `stage_2_split/` are intermediate data products.
+- `data/filters/` — validation, de-duplication, length, difficulty, and balancing helpers used by the data scripts.
 
-## Run in Colab
+`train.json` and `test.json` beside each notebook are the final inputs for that notebook. They are deliberately duplicated there so they can be uploaded directly to Colab.
 
-For the controlled base evaluation, upload `base/base_model.ipynb` and `base/test.json` to Colab and run all cells on a T4 GPU (CPU fallback is supported but slow). `train.json` is optional and only used to display its size. The notebook evaluates both 0- and 2-Wait settings and saves JSON metrics under `base/results/` and plots under `base/plots/`. The public base model is downloaded into `base/weights/base_model_weights/` when it is not cached.
+## Running the code
 
-For training and budget-forcing evaluation, upload `budget_forcing/budget_force_model.ipynb`, `train.json`, and `test.json` to `/content`, then run all cells on a T4 GPU. It trains the QLoRA adapter, evaluates 0 and 2 forced continuations, saves plots under `budget_forcing/plots/`, metrics under `budget_forcing/results/`, and adapter/tokenizer files under `budget_forcing/weights/`. It downloads an archive with those same three subfolders; extract it into the local `budget_forcing/` folder to preserve the layout.
+The notebooks are intended for Google Colab. Open the appropriate notebook, select **Runtime → Change runtime type → T4 GPU**, upload the files named in the section below, and run the cells from top to bottom. The notebooks install their own Python dependencies.
 
-For evaluation without retraining, upload `budget_forcing/evaluation.ipynb`, `test.json`, and the adapter files `weights/adapter_config.json` and `weights/adapter_model.safetensors` from one training run (tokenizer files from `weights/` are also useful). Optionally upload `base/results/base_budget_results.json`; the notebook checks its test-file hash and prints a matched comparison. Run this notebook in a fresh Colab runtime to avoid keeping two model copies in T4 memory. It saves metrics under `results/` and plots under `plots/`. The base model downloads from Hugging Face if not cached.
+To rebuild the early data-preparation stage locally, create an environment with Python 3.10+ and install the required package:
 
-Both evaluation notebooks use the same prompt, FP16 base weights, batch size, answer parsing, 1,024-token reasoning cap, 32-token answer allowance, and generation/scoring code. They record the test-file SHA-256 so mismatched splits are not compared. The package layout under `/content/base/` and `/content/budget_forcing/` is recognized; outputs are grouped into `plots/`, `weights/`, and `results/` beside the package files.
+```bash
+pip install datasets
+python data/build_stage_1.py --overwrite
+```
 
-## Weights and Git
+This downloads GSM8K unless the source Parquet files are already in `data/raw/`. The resulting topic-label request files must be completed and validated before `data/build_stage_2.py` can produce the final balanced split. Most users can skip this process and use the checked-in final JSON files.
 
-Do not commit model snapshots or adapter tensors to ordinary Git history. The base snapshot is several gigabytes, and the trained adapter file from prior runs is about 148 MB; GitHub blocks individual regular Git files above 100 MiB. The `.gitignore` excludes downloaded model snapshots and checkpoints, while `.gitattributes` tracks `budget_forcing/weights/adapter_model.safetensors` using Git LFS. Git LFS storage and bandwidth quotas apply. The training notebook downloads the base snapshot and exports the adapter separately for Colab.
+For a base-model evaluation, upload `base/base_model.ipynb` and `base/test.json` to Colab, then run every cell. Uploading `base/train.json` is optional; it is used only to show the training-set size. Results are written to `base/results/` and plots to `base/plots/`.
 
-The adapter files are in `budget_forcing/weights/`, metrics JSONs in `budget_forcing/results/`, and plots in `budget_forcing/plots/`. The evaluation-only notebook can load this adapter after you upload `test.json` and the adapter configuration/tensor to Colab. The training notebook exports this layout in its result archive.
+## Colab T4: adapter budget-forcing evaluation
 
-## Data and model attribution
+There is no standalone `budget_force_evaluation.py` in this repository; the evaluation entry point is `budget_forcing/evaluation.ipynb`. Use it when an adapter has already been trained and you do not want to retrain it.
 
-The raw GSM8K source dataset is distributed under the MIT License; see the [Hugging Face dataset card](https://huggingface.co/datasets/openai/gsm8k). The model referenced by the notebooks is [DeepSeek-R1-Distill-Qwen-1.5B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B), listed under the MIT License by DeepSeek. Its model card also notes that the distilled Qwen base originates from Qwen2.5, originally licensed under Apache 2.0. Review upstream notices before redistributing model artifacts.
+In a fresh Colab runtime with a T4 GPU, upload these files to `/content` (or preserve the same paths inside a `budget_forcing/` folder):
 
-The notebook settings, dataset size, model size, and Colab hardware differ substantially from the original s1 experiments. Results should be presented as a small educational experiment, not a reproduction of s1's reported performance.
+```text
+evaluation.ipynb
+test.json
+weights/adapter_config.json
+weights/adapter_model.safetensors
+```
+
+Upload the tokenizer files from the same training run as well when available:
+
+```text
+weights/tokenizer.json
+weights/tokenizer_config.json
+weights/special_tokens_map.json
+weights/chat_template.jinja
+```
+
+The notebook downloads the base weights automatically from Hugging Face:
+
+```text
+deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+```
+
+It then loads those base weights in FP16, attaches the uploaded QLoRA adapter, and evaluates the uploaded `test.json` with 0 and 2 forced continuations. It writes `adapter_budget_results.json` and the corresponding plots under `results/` and `plots/`. A run typically takes about 15–25 minutes for 0 waits and 30–55 minutes for 2 waits on a T4. Do not upload the full base-model checkpoint: Colab downloads it itself. Keep the adapter configuration and adapter tensor from the same training run.
+
+If you also upload `base_budget_results.json` from a base-model run, the notebook compares base and fine-tuned results only when both files use the same `test.json` hash.
+
+To train a new adapter instead, upload `budget_forcing/budget_force_model.ipynb`, `budget_forcing/train.json`, and `budget_forcing/test.json`, then run all cells on a T4. It saves the adapter, tokenizer, metrics, and plots and offers a downloadable `budget_force_results.zip` archive.
+
+## Notes on weights
+
+Do not add full base-model snapshots or large adapter tensors to normal Git history. The project ignores downloaded checkpoints, and `budget_forcing/weights/adapter_model.safetensors` is configured for Git LFS. LFS storage and bandwidth limits still apply.
+
+GSM8K is available under the MIT License. The model is [DeepSeek-R1-Distill-Qwen-1.5B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B), whose model card lists an MIT license. This is a small educational experiment, not a reproduction of the original s1 results.
